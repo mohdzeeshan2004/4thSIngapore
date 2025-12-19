@@ -1,1 +1,67 @@
-# 4thSIngapore
+import streamlit as st
+import pandas as pd
+
+st.title("Singapore Resident Population Dashboard")
+
+# Upload CSV file
+uploaded_file = st.file_uploader("Upload your population CSV file (with columns: Year, Residents, Count)", type=["csv"])
+
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    
+    # Total Population by Year (Table)
+  st.header("Total Population by Year")
+  total_population_df = df.groupby('Year')['Count'].sum().reset_index()
+  total_population_df.columns = ['Year', 'Total_Population']
+  st.dataframe(total_population_df.style.format({"Total_Population": "{:,}"}))
+
+# Female to Male Ratio
+  st.header("Female to Male Ratio by Ethnic Group")
+    
+  years = sorted(df['Year'].unique())  # Use all available years, or keep fixed: [2000, 2003, 2006, 2009, 2012, 2015, 2018]
+  groups = {
+  'Total': ('Total Male Residents', 'Total Female Residents'),
+  'Malays': ('Total Male Malays', 'Total Female Malays'),
+  'Chinese': ('Total Male Chinese', 'Total Female Chinese'),
+  'Indians': ('Total Male Indians', 'Total Female Indians'),
+  'Others': ('Other Ethnic Groups (Males)', 'Other Ethnic Groups (Females)')
+   }
+    
+  for y in years:
+  with st.expander(f"Year {int(y)}"):
+  ratio_data = []
+  for g, (m, f) in groups.items():
+  male_row = df[(df['Year'] == y) & (df['Residents'] == m)]
+  female_row = df[(df['Year'] == y) & (df['Residents'] == f)]
+      if not male_row.empty and not female_row.empty:
+                    male = male_row['Count'].values[0]
+                    female = female_row['Count'].values[0]
+                    ratio = female / male
+                    ratio_data.append({
+                        'Group': g,
+                        'Males': f"{male:,}",
+                        'Females': f"{female:,}",
+                        'F/M Ratio': f"{ratio:.4f}"
+                    })
+            if ratio_data:
+                ratio_df = pd.DataFrame(ratio_data)
+                st.table(ratio_df)
+
+    # Population Growth
+  st.header("Total Resident Population Growth")
+    
+  popu = df[df['Residents'] == 'Total Residents'][['Year', 'Count']].sort_values('Year').copy()
+  popu['Growth % (YoY)'] = popu['Count'].pct_change() * 100
+  popu['Cumulative Growth %'] = ((popu['Count'] - popu['Count'].iloc[0]) / popu['Count'].iloc[0]) * 100
+    
+  # Format for display
+  display_popu = popu.copy()
+  display_popu['Year'] = display_popu['Year'].astype(int)
+  display_popu['Count'] = display_popu['Count'].apply(lambda x: f"{int(x):,}")
+  display_popu['Growth % (YoY)'] = display_popu['Growth % (YoY)'].apply(lambda x: "N/A" if pd.isna(x) else f"{x:.2f}%")
+  display_popu['Cumulative Growth %'] = display_popu['Cumulative Growth %'].apply(lambda x: f"{x:.2f}%")
+    
+  st.table(display_popu)
+
+else:
+    st.info("Please upload a CSV file to see the analysis. The CSV should have columns: 'Year' (int), 'Residents' (string category names as in the original code), and 'Count' (population numbers).")
